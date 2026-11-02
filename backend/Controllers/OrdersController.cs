@@ -71,7 +71,8 @@ public class OrdersController(AppDbContext db, IStockNotifier notifier) : Contro
 
         foreach (var change in stockChanges)
         {
-            await notifier.StockUpdatedAsync(change.Id, change.Current, ct, request.ConnectionId);
+            await notifier.StockUpdatedAsync(change.Id, change.Current, ct);
+
             if (change.Previous >= change.Threshold && change.Current < change.Threshold)
                 await notifier.LowStockAlertAsync(change.Id, change.Name, change.Current, change.Threshold, ct);
         }
