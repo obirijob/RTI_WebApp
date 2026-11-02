@@ -25,6 +25,7 @@ export class StockRealtimeService {
       this.stockUpdated.next({ productId, stock });
     });
     this.connection.on('LowStockAlert', (alert: LowStockAlert) => {
+      window.alert('Threshold has been reached');
       this.alerts.update((alerts) => [alert, ...alerts].slice(0, 5));
     });
     this.connection.onreconnecting(() => this.state.set('connecting'));
