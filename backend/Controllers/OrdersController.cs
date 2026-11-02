@@ -20,64 +20,65 @@ public class OrdersController(AppDbContext db, IStockNotifier notifier) : Contro
         if (request.Lines.Any(line => line.Quantity <= 0))
             return BadRequest(new { error = "All line quantities must be greater than zero." });
 
-        var order = new Order { OrderDate = DateTime.UtcNow, Status = OrderStatus.Placed };
-        var stockChanges = new List<(int Id, string Name, int Previous, int Current, int Threshold)>();
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        foreach (var line in request.Lines)
+        try
         {
-            var product = await db.Products
-                .Where(p => p.Id == line.ProductId)
-                .Select(p => new { p.Id, p.Name, p.UnitPrice, p.Stock, p.ReorderThreshold })
-                .SingleOrDefaultAsync(ct);
+            var order = new Order { OrderDate = DateTime.UtcNow, Status = OrderStatus.Placed };
+            var stockChanges = new List<(int Id, string Name, int Previous, int Current, int Threshold)>();
 
-            if (product is null)
-                return NotFound(new { error = $"Product {line.ProductId} not found." });
-
-            /**
-                added so I can tell the change
-
-                I used this to simulate
-
-                curl -X POST http://localhost:4200/api/orders -H "Content-Type: application/json" -d '{"lines":[{"productId":6,"quantity":8}]}' &
-                curl -X POST http://localhost:4200/api/orders -H "Content-Type: application/json" -d '{"lines":[{"productId":6,"quantity":8}]}' &
-                wait
-            */
-
-            // I am making sure that the stock has been checked and updated 
-            // before i continue with the operation in this single query
-
-            var changedRows = await db.Products
-                .Where(p => p.Id == line.ProductId && p.Stock >= line.Quantity)
-                .ExecuteUpdateAsync(update => update.SetProperty(p => p.Stock, p => p.Stock - line.Quantity), ct);
-
-            if (changedRows == 0)
-                return Conflict(new { error = $"Insufficient stock for product {line.ProductId}." });
-
-            var previousStock = product.Stock;
-            var currentStock = previousStock - line.Quantity;
-
-            order.Lines.Add(new OrderLine
+            foreach (var line in request.Lines)
             {
-                ProductId = product.Id,
-                Quantity = line.Quantity,
-                UnitPrice = product.UnitPrice
-            });
+                var product = await db.Products
+                    .Where(p => p.Id == line.ProductId)
+                    .Select(p => new { p.Id, p.Name, p.UnitPrice, p.Stock, p.ReorderThreshold })
+                    .SingleOrDefaultAsync(ct);
 
-            stockChanges.Add((product.Id, product.Name, previousStock, currentStock, product.ReorderThreshold));
+                if (product is null)
+                    return NotFound(new { error = $"Product {line.ProductId} not found." });
+
+                var changedRows = await db.Products
+                    .Where(p => p.Id == line.ProductId && p.Stock >= line.Quantity)
+                    .ExecuteUpdateAsync(update => update.SetProperty(p => p.Stock, p => p.Stock - line.Quantity), ct);
+
+                if (changedRows == 0)
+                {
+                    return Conflict(new { error = $"Insufficient stock for product {line.ProductId}." });
+                }
+
+                var previousStock = product.Stock;
+                var currentStock = previousStock - line.Quantity;
+
+                order.Lines.Add(new OrderLine
+                {
+                    ProductId = product.Id,
+                    Quantity = line.Quantity,
+                    UnitPrice = product.UnitPrice
+                });
+
+                stockChanges.Add((product.Id, product.Name, previousStock, currentStock, product.ReorderThreshold));
+            }
+
+            db.Orders.Add(order);
+            await db.SaveChangesAsync(ct);
+
+            await transaction.CommitAsync(ct);
+
+            foreach (var change in stockChanges)
+            {
+                await notifier.StockUpdatedAsync(change.Id, change.Current, ct);
+
+                if (change.Previous >= change.Threshold && change.Current < change.Threshold)
+                    await notifier.LowStockAlertAsync(change.Id, change.Name, change.Current, change.Threshold, ct);
+            }
+
+            return Ok(new { id = order.Id });
         }
-
-        db.Orders.Add(order);
-        await db.SaveChangesAsync(ct);
-
-        foreach (var change in stockChanges)
+        catch
         {
-            await notifier.StockUpdatedAsync(change.Id, change.Current, ct);
-
-            if (change.Previous >= change.Threshold && change.Current < change.Threshold)
-                await notifier.LowStockAlertAsync(change.Id, change.Name, change.Current, change.Threshold, ct);
+            await transaction.RollbackAsync(ct);
+            throw;
         }
-
-        return Ok(new { id = order.Id });
     }
     [HttpPost("{id:int}/cancel")]
     public async Task<IActionResult> Cancel(int id, CancellationToken ct)
