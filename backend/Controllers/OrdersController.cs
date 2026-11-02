@@ -33,13 +33,28 @@ public class OrdersController(AppDbContext db, IStockNotifier notifier) : Contro
             if (product is null)
                 return NotFound(new { error = $"Product {line.ProductId} not found." });
 
-            if (product.Stock < line.Quantity)
+            /**
+                added so I can tell the change
+
+                I used this to simulate
+
+                curl -X POST http://localhost:4200/api/orders -H "Content-Type: application/json" -d '{"lines":[{"productId":6,"quantity":8}]}' &
+                curl -X POST http://localhost:4200/api/orders -H "Content-Type: application/json" -d '{"lines":[{"productId":6,"quantity":8}]}' &
+                wait
+            */
+
+            // I am making sure that the stock has been checked and updated 
+            // before i continue with the operation in this single query
+
+            var changedRows = await db.Products
+                .Where(p => p.Id == line.ProductId && p.Stock >= line.Quantity)
+                .ExecuteUpdateAsync(update => update.SetProperty(p => p.Stock, p => p.Stock - line.Quantity), ct);
+
+            if (changedRows == 0)
                 return Conflict(new { error = $"Insufficient stock for product {line.ProductId}." });
 
-            var newStock = product.Stock - line.Quantity;
-            await db.Products
-                .Where(p => p.Id == line.ProductId)
-                .ExecuteUpdateAsync(update => update.SetProperty(p => p.Stock, newStock), ct);
+            var previousStock = product.Stock;
+            var currentStock = previousStock - line.Quantity;
 
             order.Lines.Add(new OrderLine
             {
@@ -47,7 +62,8 @@ public class OrdersController(AppDbContext db, IStockNotifier notifier) : Contro
                 Quantity = line.Quantity,
                 UnitPrice = product.UnitPrice
             });
-            stockChanges.Add((product.Id, product.Name, product.Stock, newStock, product.ReorderThreshold));
+
+            stockChanges.Add((product.Id, product.Name, previousStock, currentStock, product.ReorderThreshold));
         }
 
         db.Orders.Add(order);
@@ -62,7 +78,6 @@ public class OrdersController(AppDbContext db, IStockNotifier notifier) : Contro
 
         return Ok(new { id = order.Id });
     }
-
     [HttpPost("{id:int}/cancel")]
     public async Task<IActionResult> Cancel(int id, CancellationToken ct)
     {
