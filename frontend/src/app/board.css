@@ -1,0 +1,25 @@
+:host { display: block; }
+.board-heading { align-items: end; display: flex; justify-content: space-between; margin: 1.5rem 0 2.2rem; }
+.board-heading p { color: var(--accent); font: 700 .72rem var(--mono); letter-spacing: .18em; margin: 0 0 .55rem; text-transform: uppercase; }
+h1 { font: 500 clamp(2.4rem, 6vw, 4.8rem)/.88 var(--display); letter-spacing: -.06em; margin: 0; }
+.connection { align-items: center; border: 1px solid var(--line); display: flex; font: 700 .68rem var(--mono); gap: .55rem; padding: .6rem .75rem; text-transform: uppercase; }
+.connection i { background: var(--danger); border-radius: 50%; height: .5rem; width: .5rem; }
+.connection[data-state="live"] i { animation: pulse 1.6s infinite; background: var(--healthy); box-shadow: 0 0 10px var(--healthy); }
+.connection[data-state="connecting"] i { background: var(--accent); }
+.alerts { background: var(--accent); color: var(--ink); display: flex; flex-wrap: wrap; gap: .8rem 1.5rem; margin-bottom: 1rem; padding: 1rem; }
+.alerts span { font: 700 .65rem var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.alerts strong { font-weight: 600; }
+.stock-grid { display: grid; gap: 1px; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--line); border: 1px solid var(--line); }
+article { background: #111413; min-height: 13rem; padding: 1.15rem; position: relative; }
+article > span { color: var(--muted); font: 600 .63rem var(--mono); letter-spacing: .08em; }
+article h2 { font: 600 1rem/1.25 var(--display); margin: .6rem 0 2rem; }
+.reading { align-items: end; display: flex; gap: .8rem; }
+.reading strong { font: 500 3rem/.8 var(--mono); }
+.reading small { color: var(--muted); font: 500 .62rem/1.35 var(--mono); text-transform: uppercase; }
+.meter { background: #292d2c; bottom: 1rem; height: 3px; left: 1.15rem; position: absolute; right: 1.15rem; }
+.meter i { background: var(--healthy); display: block; height: 100%; max-width: 100%; }
+article.critical { background: #291513; }
+article.critical .meter i { background: var(--danger); }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (max-width: 900px) { .stock-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .stock-grid { grid-template-columns: 1fr; } }

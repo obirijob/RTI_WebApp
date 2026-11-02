@@ -1,0 +1,30 @@
+<header class="board-heading">
+  <div>
+    <p>Live operations</p>
+    <h1>Stock pulse</h1>
+  </div>
+  <span class="connection" [attr.data-state]="realtime.state()"><i></i>{{ realtime.state() }}</span>
+</header>
+
+@if (realtime.alerts().length) {
+  <section class="alerts" aria-live="polite">
+    <span>Active signal</span>
+    @for (alert of realtime.alerts(); track alert.productId) {
+      <strong>{{ alert.productName }} fell to {{ alert.stock }} units</strong>
+    }
+  </section>
+}
+
+<section class="stock-grid">
+  @for (product of products().slice(0, 24); track product.id) {
+    <article [class.critical]="product.stock < product.reorderThreshold">
+      <span>{{ product.sku }}</span>
+      <h2>{{ product.name }}</h2>
+      <div class="reading">
+        <strong>{{ product.stock }}</strong>
+        <small>units<br />threshold {{ product.reorderThreshold }}</small>
+      </div>
+      <div class="meter"><i [style.width.%]="(product.stock / 100) * 100"></i></div>
+    </article>
+  }
+</section>

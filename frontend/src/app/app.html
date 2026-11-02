@@ -1,0 +1,10 @@
+<header class="site-header">
+  <a class="brand" routerLink="/inventory"><b>RT</b><span>Rapid<br />Inventory</span></a>
+  <nav aria-label="Primary navigation">
+    <a routerLink="/inventory" routerLinkActive="active">Ledger</a>
+    <a routerLink="/board" routerLinkActive="active">Live board</a>
+  </nav>
+  <span class="status" [attr.data-state]="realtime.state()"><i></i>{{ realtime.state() }}</span>
+</header>
+<main><router-outlet /></main>
+<footer><span>Warehouse system 03</span><span>UTC synchronized</span></footer>

@@ -1,0 +1,61 @@
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Warehouse ledger</p>
+    <h1>Inventory control</h1>
+  </div>
+  <p class="count"><strong>{{ total() }}</strong> active lines</p>
+</section>
+
+<section class="toolbar" aria-label="Inventory controls">
+  <label>
+    <span>Search stock</span>
+    <input [(ngModel)]="search" (keyup.enter)="load()" placeholder="Name or SKU" />
+  </label>
+  <button class="primary" type="button" (click)="load()">Run query</button>
+  <label class="quantity">
+    <span>Move qty.</span>
+    <input [(ngModel)]="quantity" type="number" min="1" />
+  </label>
+</section>
+
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+
+<div class="table-shell" [class.is-loading]="loading()">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">SKU / Product</th>
+        <th scope="col">Category</th>
+        <th scope="col">Unit</th>
+        <th scope="col">Stock signal</th>
+        <th scope="col" class="actions-heading">Dispatch</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (product of products(); track product.id) {
+        <tr>
+          <td>
+            <span class="sku">{{ product.sku }}</span>
+            <strong>{{ product.name }}</strong>
+          </td>
+          <td>{{ product.category }}</td>
+          <td>{{ product.unitPrice | currency: 'KES' : 'symbol-narrow' : '1.0-0' }}</td>
+          <td>
+            <span class="stock" [attr.data-state]="stockState(product)">
+              <i></i>{{ product.stock }}
+            </span>
+            <small>reorder at {{ product.reorderThreshold }}</small>
+          </td>
+          <td class="actions">
+            <button type="button" (click)="order(product)" [disabled]="busyProductId() === product.id || product.stock === 0">Order</button>
+            <button type="button" (click)="restock(product)" [disabled]="busyProductId() === product.id">Restock</button>
+          </td>
+        </tr>
+      } @empty {
+        <tr><td colspan="5" class="empty">No inventory lines match this query.</td></tr>
+      }
+    </tbody>
+  </table>
+</div>
